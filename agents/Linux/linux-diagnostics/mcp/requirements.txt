@@ -1,0 +1,2 @@
+mcp>=1.0.0
+ansible-core>=2.16

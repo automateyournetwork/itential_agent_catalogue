@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "catalyst-center": {
+      "type": "http",
+      "url": "http://localhost:7001/v1/mcp",
+      "description": "Cisco Catalyst Center (DNAC) MCP server — official Cisco server (cisco-en-programmability/catc-mcp-oss), curated to the 5 read-only tools this agent uses. See INSTALL.md."
+    }
+  }
+}

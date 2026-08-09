@@ -1,0 +1,30 @@
+{
+  "description": "Default invocation, no context. Captured against the live catalyst-center MCP server (streamable-http, port 7001) fronting a Catalyst 9000 virtual sandbox — real data, not synthetic.",
+  "input": {
+    "context": {}
+  },
+  "observed_tool_call": {
+    "tool": "api_devices",
+    "params": { "limit": 10 },
+    "result_summary": {
+      "totalCount": 4,
+      "devices": [
+        { "name": "sw1", "overallHealth": 10, "issueCount": 0, "reachabilityHealth": "REACHABLE", "ipAddress": "10.10.20.175" },
+        { "name": "sw2", "overallHealth": 10, "issueCount": 0, "reachabilityHealth": "REACHABLE", "ipAddress": "10.10.20.176" },
+        { "name": "sw3", "overallHealth": 10, "issueCount": 0, "reachabilityHealth": "REACHABLE", "ipAddress": "10.10.20.177" },
+        { "name": "sw4", "overallHealth": 10, "issueCount": 0, "reachabilityHealth": "REACHABLE", "ipAddress": "10.10.20.178" }
+      ],
+      "note": "All 4 devices captured, all fully healthy — verified via the real MCP SDK streamablehttp_client against the live server, not iagctl"
+    }
+  },
+  "expected_output_shape": {
+    "first_line": "0 of 4 devices degraded.",
+    "per_site_sections": "one per site, but with 0 degraded devices there is nothing to list under any site",
+    "closing_line": "no \"Needs attention first\" line — omit entirely when no devices are flagged"
+  },
+  "assertions": [
+    "Report states a count, not silence, even when nothing is degraded",
+    "Does not claim the network is empty or fine beyond what api_devices actually returned",
+    "Does not fabricate a 4th device's fields not actually observed"
+  ]
+}

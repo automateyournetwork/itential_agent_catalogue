@@ -1,0 +1,22 @@
+{
+  "description": "EXPECTED shape for a successful run, based on this folder's reconstructed run_diagnostics contract (mcp/server.py + ansible/linux_diagnostics.yml). NOT captured against real data — the live production tool never got past inventory resolution during conversion (see invalid-inventory.json), and this reconstruction hasn't been run against a real Linux fleet either. Verify against real output before trusting this as ground truth; treat it as a contract test for the shape, not a proof of correctness.",
+  "input": {
+    "context": { "inventory": "webservers" }
+  },
+  "observed_tool_call": {
+    "tool": "run_diagnostics",
+    "params": { "inventory": "webservers" },
+    "result_summary": "UNVERIFIED / EXPECTED: {\"isError\": false, \"hosts\": [{\"hostname\": \"web1\", \"reachable\": true, \"uptime_seconds\": 1234567, \"memory_mb\": {\"total\": 8192, \"free\": 3000}, \"swap_mb\": {\"total\": 2048, \"free\": 2048}, \"cpu\": {\"cores\": 4, \"load_1m\": 0.42}, \"disks\": [{\"mount\": \"/\", \"percent_used\": 45.2}], \"inodes_raw\": [...], \"failed_systemd_units\": [], \"oom_events_24h\": [], \"zombie_process_count\": 0, \"network_interfaces\": [\"eth0\", \"lo\"], \"services\": {\"sshd\": \"active\"}}]}"
+  },
+  "expected_output_shape": {
+    "first_line": "\"0 of 1 hosts degraded\" (all thresholds pass in this example)",
+    "body": "\"web1 — status: OK\" as a single summary line, since nothing was flagged",
+    "closing_line": "Omitted — no 'Needs attention first' line when nothing is degraded, matching the Cisco health-triage agent's convention for the same case"
+  },
+  "assertions": [
+    "states a real count derived from the actual hosts[] array length, never a hardcoded number",
+    "does not fabricate per-host metrics beyond what run_diagnostics actually returned",
+    "correctly applies every threshold in skills/linux-diagnostics/SKILL.md rather than only checking a subset",
+    "if isError is true or hosts[] is empty, this shape does NOT apply — see invalid-inventory.json for that case, and the agent must not report a clean result in that situation"
+  ]
+}

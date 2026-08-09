@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "linux-diagnostics": {
+      "type": "http",
+      "url": "http://localhost:7002/v1/mcp",
+      "description": "Linux host diagnostics (disk, memory, CPU, swap, inodes, services, failed systemd units, OOM events, zombie processes). This repo's own implementation — see INSTALL.md and ../ansible/linux_diagnostics.yml. Not a wrapped third-party server."
+    }
+  }
+}

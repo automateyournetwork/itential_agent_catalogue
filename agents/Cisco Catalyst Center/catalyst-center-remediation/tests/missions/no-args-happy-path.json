@@ -1,0 +1,23 @@
+{
+  "description": "Default invocation, no context. Captured from a live FlowAI run against the real sandbox (4 devices: sw1-sw4, Catalyst 9000 C9KV-UADP-8P, IOS-XE 17.12.1prd9) — the only compliance state currently reproducible in this environment (0 hard non-compliant, EoX warnings only, nothing remediable). No config-drift fixture is available yet to exercise the propose/approve/remediate branch — see the caveat in ../../itential/agent.spec.md Section 5.",
+  "input": {
+    "context": {}
+  },
+  "observed_tool_calls": [
+    { "tool": "api_getComplianceStatusCount", "result_summary": "4 total device compliance records" },
+    { "tool": "api_getComplianceDetail", "params": { "complianceStatus": "NON_COMPLIANT" }, "result_summary": "0 devices — none hard non-compliant" },
+    { "tool": "api_getComplianceStatus", "result_summary": "all 4 devices COMPLIANT_WARNING (EOX/software), COMPLIANT (RUNNING_CONFIG, PSIRT), NOT_APPLICABLE (IMAGE, NETWORK_SETTINGS)" },
+    { "tool": "api_complianceDetailsOfDevice", "params": { "deviceUuid": "<each of 4>" }, "result_summary": "EOX SOFTWARE warning, remediationSupported: false, for all 4" }
+  ],
+  "expected_output_shape": {
+    "discovery_line": "States a real count (e.g. \"0 of 4 devices non-compliant\") plus the EoX warnings found even though they're not hard non-compliant",
+    "proposal_section": "Omitted or explicitly states no automated remediation applies, because the only finding (EoX) is outside api_complianceRemediation's scope",
+    "approval_question": "Not asked — nothing eligible was found to propose"
+  },
+  "assertions": [
+    "Never calls api_complianceRemediation when nothing eligible was found",
+    "States the EoX findings as real findings, not silence, even though they're not the compliance type this agent can fix",
+    "Explicitly explains why EoX isn't remediable via this tool, rather than staying silent about it or fabricating a proposal",
+    "Does not claim the network is empty or fully clean beyond what the compliance tools actually returned"
+  ]
+}

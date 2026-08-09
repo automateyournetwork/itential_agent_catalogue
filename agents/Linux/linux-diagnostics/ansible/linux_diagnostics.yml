@@ -1,0 +1,108 @@
+---
+# Linux Diagnostics collection playbook.
+#
+# RECONSTRUCTION NOTICE: this playbook does not come from the original Gateway service
+# (gatewayService:$GATEWAY_CLUSTER:ansible-playbook:linux-diagnostics) — that service's real
+# source was not accessible during conversion (requires an iagctl Gateway login not available at
+# the time). This is a from-scratch implementation that collects the same metrics, in the same
+# shape, that the original FlowAI agent's own instructions document it returning. See
+# ../itential/agent.spec.md "Provenance" for the live evidence this is modeled on (a real,
+# partially-failed run against the actual Gateway service that revealed its real playbook path,
+# task names, and inventory-resolution mechanism, even though it never reached its own
+# diagnostics-collection tasks).
+#
+# Collects raw facts only — it does NOT classify OK/WARNING/CRITICAL. Thresholding happens in the
+# consuming agent/skill (../skills/linux-diagnostics/SKILL.md), same division of labor the
+# original agent used (tool returns raw metrics, the LLM applies the threshold table).
+
+- name: Linux Diagnostics
+  hosts: "{{ target_hosts | default('all') }}"
+  gather_facts: true
+  any_errors_fatal: false
+  vars:
+    expected_services:
+      - sshd
+
+  tasks:
+    - name: Read uptime
+      ansible.builtin.command: cat /proc/uptime
+      register: uptime_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Read load average
+      ansible.builtin.command: cat /proc/loadavg
+      register: loadavg_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Read inode usage per mount
+      ansible.builtin.shell: set -o pipefail && df -iP | tail -n +2
+      args:
+        executable: /bin/bash
+      register: inode_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Check expected services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+      loop: "{{ expected_services }}"
+      register: service_status
+      ignore_errors: true
+
+    - name: Check failed systemd units
+      ansible.builtin.command: systemctl --failed --no-legend --plain
+      register: failed_units_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Check for OOM kill events in the last 24 hours
+      ansible.builtin.shell: set -o pipefail && (journalctl -k --since '-24 hours' 2>/dev/null | grep -i 'out of memory' || true)
+      args:
+        executable: /bin/bash
+      register: oom_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Count zombie processes
+      ansible.builtin.shell: set -o pipefail && ps -eo stat= | grep -c '^Z' || true
+      args:
+        executable: /bin/bash
+      register: zombie_raw
+      changed_when: false
+      failed_when: false
+
+    - name: Build per-host diagnostics result
+      ansible.builtin.set_fact:
+        diagnostics_result:
+          hostname: "{{ inventory_hostname }}"
+          reachable: true
+          uptime_seconds: "{{ (uptime_raw.stdout.split(' ')[0] | default('0')) | float | int }}"
+          memory_mb:
+            total: "{{ ansible_memtotal_mb | default(0) }}"
+            free: "{{ ansible_memfree_mb | default(0) }}"
+          swap_mb:
+            total: "{{ ansible_swaptotal_mb | default(0) }}"
+            free: "{{ ansible_swapfree_mb | default(0) }}"
+          cpu:
+            cores: "{{ ansible_processor_vcpus | default(1) }}"
+            load_1m: "{{ (loadavg_raw.stdout.split(' ')[0] | default('0')) | float }}"
+          disks_raw: "{{ ansible_mounts }}"
+          inodes_raw: "{{ inode_raw.stdout_lines | default([]) }}"
+          failed_systemd_units: "{{ failed_units_raw.stdout_lines | default([]) }}"
+          oom_events_24h: "{{ oom_raw.stdout_lines | default([]) }}"
+          zombie_process_count: "{{ (zombie_raw.stdout | default('0')) | trim | int }}"
+          network_interfaces: "{{ ansible_interfaces | default([]) }}"
+          services:
+            "{{ dict(expected_services | zip(service_status.results | map(attribute='status.ActiveState') | list)) }}"
+
+    - name: Emit result (consumed by mcp/server.py via ANSIBLE_STDOUT_CALLBACK=json)
+      ansible.builtin.debug:
+        msg: "{{ diagnostics_result }}"
+
+# A genuinely unreachable host never runs any task in this play at all — it only shows up in the
+# JSON callback's top-level `stats.<host>.unreachable` count, never in `plays[].tasks[].hosts`.
+# mcp/server.py cross-references `stats` against which hosts produced a `diagnostics_result` and
+# synthesizes a `{"reachable": false, "reason": "Host unreachable"}` row for the difference —
+# don't try to handle that case inside the playbook itself.

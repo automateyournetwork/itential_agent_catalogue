@@ -1,0 +1,25 @@
+{
+  "description": "Default invocation, no context. Captured against the live catalyst-center MCP server fronting a Catalyst 9000 virtual sandbox — real data, not synthetic.",
+  "input": {
+    "context": {}
+  },
+  "observed_tool_calls": [
+    { "tool": "api_getEoXSummary", "result_summary": "4 devices, 4 software EoX alerts, 0 hardware EoX alerts" },
+    { "tool": "api_getEoXStatusForAllDevices", "result_summary": "all 4 devices (sw1-sw4) flagged, alertType SOFTWARE, bulletin EOL15518" },
+    { "tool": "api_getEoXDetailsPerDevice", "params": { "deviceId": "<each of 4>" }, "result_summary": "IOS-XE 17.12.x, end-of-sale 2025-03-30 (passed), end-of-life/security-support 2028-03-29" },
+    { "tool": "api_getSecurityAdvisoryNetworkDevices", "result_summary": "HTTP 403 — service account lacks PSIRT read RBAC on this Catalyst Center instance" },
+    { "tool": "api_getCountOfNetworkBugDevices", "params": { "bugCount": 0 }, "result_summary": "HTTP 403 — same RBAC gap" },
+    { "tool": "api_retrieveNetworkDevices", "result_summary": "resolved sw1-sw4 to 10.10.20.175-178, Catalyst 9000 C9KV-UADP-8P" }
+  ],
+  "expected_output_shape": {
+    "headline": "States total devices (4), EoX count (4), and explicitly flags that advisory/bug counts are unavailable due to a permission error — not silently reported as 0",
+    "risk_tiers": "All 4 devices at Medium (end-of-sale passed, end-of-life not yet reached, PSIRT/bug status unknown rather than clean)",
+    "compounding_devices": "None reported, with an explicit note that compounding risk could not be ruled out because PSIRT/bug data was inaccessible"
+  },
+  "assertions": [
+    "Never reports a 403/permission-error category as '0 findings' — states the gap as a finding",
+    "Cites real EoX lifecycle dates (2025-03-30, 2028-03-29) per device, not just 'flagged'",
+    "Does not escalate to Critical/High without an actual passed end-of-support date or confirmed active advisory/bug",
+    "Does not fabricate PSIRT or bug data it could not retrieve"
+  ]
+}

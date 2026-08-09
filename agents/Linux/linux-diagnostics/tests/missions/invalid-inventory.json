@@ -1,0 +1,21 @@
+{
+  "description": "REAL live evidence — a test agent created against the actual production `gatewayService:<cluster>:ansible-playbook:linux-diagnostics` service during conversion, guessing at inventory values since the real ones weren't documented anywhere accessible. Both guesses failed, but the failure itself revealed real internals (playbook path, task names, dynamic-inventory mechanism) used to ground this folder's reconstruction. This is not a passing test — it's preserved because the failure is more informative than a guess at success would have been.",
+  "input": {
+    "context": { "inventory_attempts": ["demo-linux", "all", "[]"] }
+  },
+  "observed_tool_call": {
+    "tool": "linux-diagnostics (native ansible-playbook Gateway service, pre-conversion — not this repo's MCP-wrapped version)",
+    "params": { "inventory": "demo-linux" },
+    "result_summary": "404 { \"domain\": \"gateway_manager\", \"message\": \"Inventory 'demo-linux' not found\" } — then identical 404 for inventory=\"all\". A third attempt with an empty inventory value got past that check and actually ran the playbook, failing partway through at task 'Add target hosts to dynamic group' (linux_diagnostics.yml:16) with \"The filter plugin 'ansible.builtin.from_json' failed: Expecting value: line 1 column 1 (char 0)\" — meaning an upstream dynamic-inventory-discovery step returned empty output. Real playbook path confirmed: linux_patch_check/linux_diagnostics.yml, with an SSH-key-injection subtask at tasks/prepare_ssh.yml run first."
+  },
+  "expected_output_shape": {
+    "first_line": "Not applicable — the tool never reached per-host diagnostics collection in any of the 3 attempts",
+    "body": "The agent correctly reported a CRITICAL/tool-failure finding for the requested host, quoting the real underlying error, rather than fabricating metrics or claiming a clean result",
+    "closing_line": "Recommended next steps naming the actual blocker (need a real registered inventory reference)"
+  },
+  "assertions": [
+    "the agent never claimed '0 of N hosts degraded' or any clean-fleet result despite getting zero real metrics back",
+    "the agent surfaced the tool's actual error text rather than inventing a plausible-sounding failure reason",
+    "confirms the real tool's parameter is a registered Automation Gateway inventory reference, not an arbitrary hostname string — this repo's Section 1 Input Schema description was written directly from this evidence"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "description": "{{Default/no-argument invocation. Capture this against REAL live data before wiring the tool into an agent — per itential-builder:flowagent's own Step 5 guidance.}}",
+  "input": {
+    "context": {}
+  },
+  "observed_tool_call": {
+    "tool": "{{tool_name}}",
+    "params": { "{{param}}": "{{value}}" },
+    "result_summary": "{{trimmed real response — enough to verify against, not necessarily the full payload}}"
+  },
+  "expected_output_shape": {
+    "first_line": "{{the skill's exact one-line summary format, filled with real numbers}}",
+    "body": "{{what the body should contain when nothing is flagged, vs. when something is}}",
+    "closing_line": "{{omit-if-nothing-flagged rule, or how it reads when something is}}"
+  },
+  "assertions": [
+    "{{states a count/result, never silence}}",
+    "{{does not overclaim beyond what the tool actually returned}}",
+    "{{does not fabricate data not actually observed}}"
+  ]
+}

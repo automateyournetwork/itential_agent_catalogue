@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "{{mcp-server-name}}": {
+      "type": "{{stdio|http|sse}}",
+      "url": "{{http://localhost:PORT/path — omit for stdio}}",
+      "command": "{{command — omit for http/sse}}",
+      "args": ["{{arg1}}"],
+      "_comment": "Delete whichever of url/command+args doesn't apply to your transport. Claude Code ignores unknown fields but keep this file matching its real .mcp.json schema for the transport you use."
+    }
+  }
+}
