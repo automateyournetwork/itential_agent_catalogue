@@ -10,24 +10,46 @@ from _repo_utils import parse_args, resolve_repo_root, safe_path  # noqa: E402
 MAX_MATCHES = 200
 
 
+def build_regex(args):
+    """Prefer `patterns` (a list of plain literal strings, no regex syntax
+    required) over `pattern` (a single regex) - the model has repeatedly
+    produced malformed combined regexes, so the literal-list interface
+    removes that entire failure mode.
+    """
+    patterns = args.get("patterns")
+    if patterns:
+        if not isinstance(patterns, list) or not all(isinstance(p, str) for p in patterns):
+            raise ValueError("patterns must be a list of strings")
+        escaped = [re.escape(p) for p in patterns if p]
+        if not escaped:
+            raise ValueError("patterns must contain at least one non-empty string")
+        return re.compile("|".join(escaped)), {p: re.escape(p) for p in patterns}
+
+    pattern = args.get("pattern")
+    if pattern:
+        return re.compile(pattern), None
+
+    raise ValueError("either patterns (list of literal strings) or pattern (regex) is required")
+
+
 def main():
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
     repo = args.get("repo")
-    pattern = args.get("pattern")
     path = args.get("path", ".")
 
-    if not pattern:
-        print(json.dumps({"isError": True, "error": "pattern is required"}))
+    try:
+        regex, literal_map = build_regex(args)
+    except re.error as e:
+        print(json.dumps({"isError": True, "error": f"invalid regex: {e}"}))
+        return
+    except ValueError as e:
+        print(json.dumps({"isError": True, "error": str(e)}))
         return
 
     try:
         root = resolve_repo_root(repo)
         search_root = safe_path(root, path)
-        regex = re.compile(pattern)
-    except re.error as e:
-        print(json.dumps({"isError": True, "error": f"invalid regex: {e}"}))
-        return
     except ValueError as e:
         print(json.dumps({"isError": True, "error": str(e)}))
         return
