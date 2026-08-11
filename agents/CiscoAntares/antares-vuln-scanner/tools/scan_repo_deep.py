@@ -15,7 +15,7 @@ OLLAMA_MODEL = os.environ.get("ANTARES_OLLAMA_MODEL", "antares-1b:latest")
 CHUNK_CHAR_BUDGET = int(os.environ.get("ANTARES_CHUNK_CHAR_BUDGET", "8000"))
 REQUEST_TIMEOUT_SECONDS = 120
 DEFAULT_FILE_PATTERN = "*.py"
-VERDICT_LINE_RE = re.compile(r"^\s*VULNERABLE\s*:\s*(\S.*)$", re.IGNORECASE | re.MULTILINE)
+VERDICT_LINE_RE = re.compile(r"^\s*FOUND\s*:\s*(\S.*)$", re.IGNORECASE | re.MULTILINE)
 
 
 def collect_files(root, pattern):
@@ -88,10 +88,14 @@ def ask_ollama(cwe, chunk_text, chunk_index, chunk_count):
         f"Vulnerability class to check for: {cwe}\n\n"
         f"This is chunk {chunk_index} of {chunk_count}. It may not contain the "
         "whole picture -- if this chunk alone doesn't show the vulnerability, "
-        "say NOT VULNERABLE for this chunk; other chunks are checked "
+        "say CLEAN for this chunk; other chunks are checked "
         "separately.\n\n"
-        "End with exactly one line: either \"VULNERABLE: <file path>\" naming "
-        "the specific file in this chunk, or \"NOT VULNERABLE\".\n\n"
+        "End with exactly one line: either \"FOUND: <file path>\" naming "
+        "the specific file in this chunk, or \"CLEAN\". Use exactly one of "
+        "those two words as your last line, matching whatever you just "
+        "concluded -- do not write FOUND if your own reasoning above just "
+        "concluded there's no issue, and don't write CLEAN if you just "
+        "identified a real instance.\n\n"
         f"Codebase chunk:\n{chunk_text}"
     )
     body = json.dumps(
