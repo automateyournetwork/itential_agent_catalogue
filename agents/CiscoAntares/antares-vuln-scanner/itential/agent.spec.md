@@ -38,19 +38,19 @@ iagctl create repository antares-vuln-scanner \
 # repeat this service registration per tool — only the name/filename change
 iagctl create service python-script antares-vuln_grep_repo \
   --repository antares-vuln-scanner \
-  --filename "agents/Cisco Antares/antares-vuln-scanner/tools/grep_repo.py"
+  --filename "agents/CiscoAntares/antares-vuln-scanner/tools/grep_repo.py"
 iagctl create service python-script antares-vuln_find_files \
   --repository antares-vuln-scanner \
-  --filename "agents/Cisco Antares/antares-vuln-scanner/tools/find_files.py"
+  --filename "agents/CiscoAntares/antares-vuln-scanner/tools/find_files.py"
 iagctl create service python-script antares-vuln_read_file \
   --repository antares-vuln-scanner \
-  --filename "agents/Cisco Antares/antares-vuln-scanner/tools/read_file.py"
+  --filename "agents/CiscoAntares/antares-vuln-scanner/tools/read_file.py"
 iagctl create service python-script antares-vuln_submit_vulnerable_files \
   --repository antares-vuln-scanner \
-  --filename "agents/Cisco Antares/antares-vuln-scanner/tools/submit_vulnerable_files.py"
+  --filename "agents/CiscoAntares/antares-vuln-scanner/tools/submit_vulnerable_files.py"
 iagctl create service python-script antares-vuln_submit_no_vulnerability_found \
   --repository antares-vuln-scanner \
-  --filename "agents/Cisco Antares/antares-vuln-scanner/tools/submit_no_vulnerability_found.py"
+  --filename "agents/CiscoAntares/antares-vuln-scanner/tools/submit_no_vulnerability_found.py"
 
 # confirm each runs cleanly before wiring into an agent
 iagctl run service python-script antares-vuln_find_files --set pattern='*.py'
