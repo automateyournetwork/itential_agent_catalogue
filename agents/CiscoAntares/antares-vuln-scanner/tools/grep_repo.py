@@ -5,7 +5,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _repo_utils import ROOT, parse_args, safe_path  # noqa: E402
+from _repo_utils import parse_args, resolve_repo_root, safe_path  # noqa: E402
 
 MAX_MATCHES = 200
 
@@ -13,6 +13,7 @@ MAX_MATCHES = 200
 def main():
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
+    repo = args.get("repo")
     pattern = args.get("pattern")
     path = args.get("path", ".")
 
@@ -21,7 +22,8 @@ def main():
         return
 
     try:
-        search_root = safe_path(path)
+        root = resolve_repo_root(repo)
+        search_root = safe_path(root, path)
         regex = re.compile(pattern)
     except re.error as e:
         print(json.dumps({"isError": True, "error": f"invalid regex: {e}"}))
@@ -29,12 +31,17 @@ def main():
     except ValueError as e:
         print(json.dumps({"isError": True, "error": str(e)}))
         return
+    except Exception as e:
+        print(json.dumps({"isError": True, "error": f"could not resolve repo: {e}"}))
+        return
 
     matches = []
     for dirpath, _dirnames, filenames in os.walk(search_root):
+        if ".git" in dirpath.split(os.sep):
+            continue
         for fname in filenames:
             fpath = os.path.join(dirpath, fname)
-            rel = os.path.relpath(fpath, ROOT)
+            rel = os.path.relpath(fpath, root)
             try:
                 with open(fpath, "r", errors="replace") as f:
                     for lineno, line in enumerate(f, start=1):

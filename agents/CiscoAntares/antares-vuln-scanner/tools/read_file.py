@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _repo_utils import parse_args, safe_path  # noqa: E402
+from _repo_utils import parse_args, resolve_repo_root, safe_path  # noqa: E402
 
 MAX_CHARS = 6000
 
@@ -12,6 +12,7 @@ MAX_CHARS = 6000
 def main():
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
+    repo = args.get("repo")
     path = args.get("path")
     start_line = args.get("start_line")
     end_line = args.get("end_line")
@@ -21,9 +22,13 @@ def main():
         return
 
     try:
-        fpath = safe_path(path)
+        root = resolve_repo_root(repo)
+        fpath = safe_path(root, path)
     except ValueError as e:
         print(json.dumps({"isError": True, "error": str(e)}))
+        return
+    except Exception as e:
+        print(json.dumps({"isError": True, "error": f"could not resolve repo: {e}"}))
         return
 
     if not os.path.isfile(fpath):
