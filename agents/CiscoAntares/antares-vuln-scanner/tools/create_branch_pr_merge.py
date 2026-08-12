@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 
@@ -153,11 +154,25 @@ def main():
         pr_number = pr["number"]
 
         step = "merge PR"
-        gh_api(
-            "PUT",
-            f"/repos/{owner}/{repo_name}/pulls/{pr_number}/merge",
-            {"merge_method": "squash"},
-        )
+        # "Base branch was modified" (405) is a transient GitHub race, not a
+        # real conflict -- it fires when another PR merges into the same
+        # base branch between this PR opening and this merge call. Retrying
+        # the exact same request after a short pause resolves it once the
+        # base branch settles; a real merge conflict would fail identically
+        # on retry, so this never masks an actual problem.
+        merge_attempts = 3
+        for attempt in range(1, merge_attempts + 1):
+            try:
+                gh_api(
+                    "PUT",
+                    f"/repos/{owner}/{repo_name}/pulls/{pr_number}/merge",
+                    {"merge_method": "squash"},
+                )
+                break
+            except RuntimeError as e:
+                if "Base branch was modified" not in str(e) or attempt == merge_attempts:
+                    raise
+                time.sleep(3)
 
         print(json.dumps({"isError": False, "branch": branch, "prUrl": pr_url, "merged": True}))
     except (subprocess.TimeoutExpired, RuntimeError) as e:
