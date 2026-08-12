@@ -105,15 +105,17 @@ def get_approver(token):
 
 
 def main():
+    """Gathers the raw facts a report needs -- it does not write the report
+    itself. Writing a coherent human-readable summary from structured facts
+    is exactly the kind of single-shot synthesis task an LLM is good at, so
+    that's handed to the "CWE Reporter (Gemma4)" agent downstream instead of
+    template strings here. This script's only job is collecting facts that
+    genuinely require deterministic lookups: who approved the fix and when,
+    which nothing in the workflow itself can know without querying the
+    platform's own job history.
+    """
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
-    cwe = args.get("cwe", "")
-    file_path = args.get("filePath", "")
-    finding_reasoning = args.get("findingReasoning", "")
-    fix_explanation = args.get("fixExplanation", "")
-    pr_url = args.get("prUrl", "")
-    branch = args.get("branch", "")
-    merged = args.get("merged", False)
 
     approved_by, approved_at = (None, None)
     if PLATFORM_URL and CLIENT_ID and CLIENT_SECRET:
@@ -123,35 +125,19 @@ def main():
         except (urllib.error.URLError, KeyError):
             approved_by, approved_at = None, None
 
-    lines = [
-        "# CWE Find-Fix-Approve-Ship — Run Report",
-        "",
-        "## Vulnerability",
-        f"- **Class:** {cwe}",
-        f"- **File:** `{file_path}`",
-        f"- **Why it's vulnerable:** {finding_reasoning}",
-        "",
-        "## Proposed Fix (Qwen3-Coder)",
-        fix_explanation or "_No explanation captured._",
-        "",
-        "## Approval",
-        f"- **Approved by:** {approved_by or 'unknown (could not resolve approver from job history)'}",
-        f"- **Approved at:** {approved_at or 'unknown'}",
-        "",
-        "## Shipped",
-        f"- **Branch:** `{branch}`" if branch else "- **Branch:** _not created_",
-        f"- **Pull Request:** {pr_url}" if pr_url else "- **Pull Request:** _not created_",
-        f"- **Merged:** {'Yes' if merged else 'No'}",
-    ]
-    final_report = "\n".join(lines)
-
     print(
         json.dumps(
             {
                 "isError": False,
-                "finalReport": final_report,
-                "approvedBy": approved_by,
-                "approvedAt": approved_at,
+                "cwe": args.get("cwe", ""),
+                "filePath": args.get("filePath", ""),
+                "findingReasoning": args.get("findingReasoning", ""),
+                "fixExplanation": args.get("fixExplanation", ""),
+                "prUrl": args.get("prUrl", ""),
+                "branch": args.get("branch", ""),
+                "merged": "true" if args.get("merged") else "false",
+                "approvedBy": approved_by or "unknown (could not resolve approver from job history)",
+                "approvedAt": approved_at or "unknown",
             }
         )
     )
