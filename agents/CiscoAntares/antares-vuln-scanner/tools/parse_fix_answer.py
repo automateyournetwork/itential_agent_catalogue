@@ -16,7 +16,18 @@ def main():
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
     file_path = args.get("filePath")
+
+    # Prefer base64 -- the agent's raw final answer is multi-line and full
+    # of backticks/quotes (a markdown fenced code block), which can crash
+    # runService's CLI-parsing ("EOF found when expecting closing quote").
+    answer_b64 = args.get("answerBase64")
     answer = args.get("answer")
+    if answer_b64:
+        try:
+            answer = base64.b64decode(answer_b64).decode("utf-8")
+        except Exception as e:
+            print(json.dumps({"isError": True, "error": f"invalid answerBase64: {e}"}))
+            return
 
     if not answer:
         print(json.dumps({"isError": True, "error": "missing required: ['answer']"}))
