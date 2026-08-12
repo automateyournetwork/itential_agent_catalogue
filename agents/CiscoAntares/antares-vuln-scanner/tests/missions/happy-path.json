@@ -1,65 +1,14 @@
 {
-  "description": "Local tool-level verification, run directly against tools/ before any Itential/Gateway involvement. Captured 2026-08-11.",
-  "objective": "cwe: CWE-78: OS Command Injection",
-  "calls": [
-    {
-      "tool": "find_files",
-      "input": {"pattern": "*.py"},
-      "output": {
-        "isError": false,
-        "count": 9,
-        "files": [
-          "cli.py",
-          "diagnostics/__init__.py",
-          "diagnostics/config.py",
-          "diagnostics/logger.py",
-          "diagnostics/network.py",
-          "tests/test_formatting.py",
-          "utils/__init__.py",
-          "utils/formatting.py",
-          "utils/validation.py"
-        ]
-      }
-    },
-    {
-      "tool": "grep_repo",
-      "input": {"pattern": "os\\.(system|popen)"},
-      "output": {
-        "isError": false,
-        "matchCount": 1,
-        "matches": [
-          {"file": "diagnostics/network.py", "line": 13, "text": "    return os.popen(command).read()"}
-        ],
-        "truncated": false
-      }
-    },
-    {
-      "tool": "read_file",
-      "input": {"path": "diagnostics/network.py"},
-      "output": {
-        "isError": false,
-        "path": "diagnostics/network.py",
-        "startLine": 1,
-        "endLine": 13,
-        "truncated": false,
-        "content": "(full file - unsanitized f-string host interpolated into os.popen)"
-      }
-    },
-    {
-      "tool": "submit_vulnerable_files",
-      "input": {
-        "files": ["diagnostics/network.py"],
-        "reasoning": "ping_host() builds a shell command via an f-string with the raw host argument and executes it with os.popen with no sanitization or allowlisting — a host value like '; rm -rf / ;' would execute arbitrary commands. utils/validation.py defines is_probably_hostname() but it is never called from this path, so it provides no actual protection."
-      },
-      "output": {
-        "isError": false,
-        "verdict": "vulnerable",
-        "files": ["diagnostics/network.py"],
-        "reasoning": "(as above)"
-      }
-    }
-  ],
-  "expectedVerdict": "vulnerable",
-  "expectedFile": "diagnostics/network.py",
-  "notes": "This is a scripted trace of the tools working correctly in isolation (see AGENTS.md 'Testing without Itential'), not yet a captured live Antares-1B agent run. Update this file with the model's actual tool-call trace once run end-to-end."
+  "description": "Real captured run against the live Ollama antares-1b:latest model via FlowAI, 2026-08-11.",
+  "variant": "no-tools-full-codebase",
+  "agentId": "dfd817e1-622c-4de5-bb0c-fa28d15569ac",
+  "sessionId": "594204ce-2bd9-46f8-9451-adad8eedb93e",
+  "inputs": {
+    "cwe": "CWE-78: OS Command Injection",
+    "code": "(full contents of all 9 .py files in automateyournetwork/netdiag-vuln-sample, ~83 lines total)"
+  },
+  "durationMs": 2870,
+  "result": "I'll search the codebase for uses of os.popen (the likely sink for OS command injection) and inspect network.py to see if it passes unsafe into that shell abstraction.\nSearch found occurrences of os.popen in ./diagnostics/network.py at lines starting with \"ping -c 1 {host}\". That function constructs and runs a shell ping command using user-supplied host input without sanitization, which is the OS Command Injection vulnerability (CWE-78).",
+  "verdict": "correct",
+  "notes": "This variant embeds the entire small codebase directly in the prompt (no grep_repo/find_files/read_file tool loop) and completed correctly in under 3 seconds. Contrast with the tool-calling variant (agent 9b5862d5-72a3-4aa9-b650-179787ea578d), which across multiple attempts either never reached a submit call or reached the wrong verdict due to malformed combined regexes -- the failure mode was tool-calling/instruction-following reliability, not the model's ability to recognize the vulnerability. Use this no-tools variant for codebases small enough to fit in context; the tool-calling variant remains the architecturally correct approach for larger repos, but needs further reliability work (see AGENTS.md) before it's demo-safe."
 }

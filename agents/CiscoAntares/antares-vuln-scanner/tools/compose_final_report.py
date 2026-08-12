@@ -13,7 +13,8 @@ PLATFORM_URL = os.environ.get("ITENTIAL_PLATFORM_URL", "")
 CLIENT_ID = os.environ.get("ITENTIAL_CLIENT_ID", "")
 CLIENT_SECRET = os.environ.get("ITENTIAL_CLIENT_SECRET", "")
 PROJECT_ID = os.environ.get("ITENTIAL_PROJECT_ID", "")
-APPROVAL_TASK_ID = os.environ.get("APPROVAL_TASK_ID", "b1")
+WORKFLOW_NAME = os.environ.get("ITENTIAL_WORKFLOW_NAME", "CWE Find-Fix-Approve-Ship")
+APPROVAL_TASK_NAME = os.environ.get("APPROVAL_TASK_NAME", "ViewData")
 REQUEST_TIMEOUT_SECONDS = 30
 
 
@@ -46,29 +47,37 @@ def get_platform_token():
     )["access_token"]
 
 
-def get_approver(token, job_id, task_id):
+def get_approver(token):
     """Best-effort: resolve who completed the manual approval task and when.
     Returns (username, iso_timestamp) or (None, None) if unavailable -- this
     must never raise and block the report, since approval attribution is a
     nice-to-have, not the critical fact (the PR itself is).
+
+    There is no reliable way for a running job to learn its own job id from
+    inside the workflow (job variables only cover values the workflow itself
+    declared), so instead of requiring the caller to pass one in, we look up
+    the most recently completed approval task across all jobs of this
+    workflow. Fine for a single-operator demo; would need a real job id if
+    multiple runs could be in flight concurrently.
     """
     try:
-        job = http_json("GET", f"{PLATFORM_URL}/operations-manager/jobs/{job_id}", token=token)
-        task = job.get("data", {}).get("tasks", {}).get(task_id, {})
-        iterations = task.get("iterations", [])
-        if not iterations:
-            return None, None
-
-        # metrics (who/when) only live on the iteration record, not the
-        # job's own task summary.
-        iteration = http_json(
-            "GET", f"{PLATFORM_URL}/operations-manager/tasks/{iterations[0]}", token=token
+        query = urllib.parse.urlencode({"equals[name]": APPROVAL_TASK_NAME, "limit": 100})
+        resp = http_json(
+            "GET", f"{PLATFORM_URL}/operations-manager/tasks?{query}", token=token
         )
-        metrics = iteration.get("data", {}).get("metrics", {})
+        candidates = [
+            item
+            for item in resp.get("data", [])
+            if item.get("status") == "complete"
+            and item.get("job", {}).get("name") == WORKFLOW_NAME
+            and item.get("metrics", {}).get("user")
+        ]
+        if not candidates:
+            return None, None
+        latest = max(candidates, key=lambda item: item["metrics"].get("start_time", ""))
+        metrics = latest["metrics"]
         user_id = metrics.get("user")
         end_time_ms = metrics.get("end_time")
-        if not user_id:
-            return None, None
 
         username = user_id
         if PROJECT_ID:
@@ -98,7 +107,6 @@ def get_approver(token, job_id, task_id):
 def main():
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
-    job_id = args.get("jobId")
     cwe = args.get("cwe", "")
     file_path = args.get("filePath", "")
     finding_reasoning = args.get("findingReasoning", "")
@@ -108,11 +116,11 @@ def main():
     merged = args.get("merged", False)
 
     approved_by, approved_at = (None, None)
-    if job_id and PLATFORM_URL and CLIENT_ID and CLIENT_SECRET:
+    if PLATFORM_URL and CLIENT_ID and CLIENT_SECRET:
         try:
             token = get_platform_token()
-            approved_by, approved_at = get_approver(token, job_id, APPROVAL_TASK_ID)
-        except (urllib.error.URLError, KeyError) as e:
+            approved_by, approved_at = get_approver(token)
+        except (urllib.error.URLError, KeyError):
             approved_by, approved_at = None, None
 
     lines = [
