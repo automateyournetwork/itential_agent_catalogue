@@ -12,10 +12,12 @@ from _repo_utils import parse_args, resolve_repo_root  # noqa: E402
 
 OLLAMA_URL = os.environ.get("ANTARES_OLLAMA_URL", "http://host.docker.internal:11434")
 OLLAMA_MODEL = os.environ.get("ANTARES_OLLAMA_MODEL", "antares-1b:latest")
-CHUNK_CHAR_BUDGET = int(os.environ.get("ANTARES_CHUNK_CHAR_BUDGET", "8000"))
+CHUNK_CHAR_BUDGET = int(os.environ.get("ANTARES_CHUNK_CHAR_BUDGET", "3000"))
 REQUEST_TIMEOUT_SECONDS = 120
 DEFAULT_FILE_PATTERN = "*.py"
 VERDICT_LINE_RE = re.compile(r"^\s*FOUND\s*:\s*(\S.*)$", re.IGNORECASE | re.MULTILINE)
+CLEAN_LINE_RE = re.compile(r"^\s*CLEAN\s*$", re.IGNORECASE | re.MULTILINE)
+MAX_VERDICT_ATTEMPTS = 3
 
 
 def collect_files(root, pattern):
@@ -146,18 +148,44 @@ def main():
 
     for i, chunk_files in enumerate(chunks, start=1):
         chunk_text = render_chunk(chunk_files)
-        try:
-            answer = ask_ollama(cwe, chunk_text, i, len(chunks))
-        except (urllib.error.URLError, TimeoutError, KeyError) as e:
-            errors.append({"chunk": i, "error": str(e)})
+
+        # Small local models occasionally ignore the exact-wording instruction
+        # and emit a verdict line that's neither "FOUND: ..." nor "CLEAN" (the
+        # model's own reasoning can still be correct even when this happens --
+        # it's an output-format slip, not a comprehension failure). Retry a
+        # few times rather than silently treating an unparseable answer as a
+        # real "CLEAN" -- those are not the same thing and must not be
+        # conflated when deciding the overall verdict.
+        answer = ""
+        verdict_match = None
+        clean_match = None
+        call_error = None
+        for attempt in range(1, MAX_VERDICT_ATTEMPTS + 1):
+            try:
+                answer = ask_ollama(cwe, chunk_text, i, len(chunks))
+            except (urllib.error.URLError, TimeoutError, KeyError) as e:
+                call_error = str(e)
+                break
+            verdict_match = VERDICT_LINE_RE.search(answer)
+            clean_match = CLEAN_LINE_RE.search(answer)
+            if verdict_match or clean_match:
+                break
+
+        if call_error:
+            errors.append({"chunk": i, "error": call_error})
             continue
 
-        # Only a properly-formatted "VULNERABLE: <file>" line counts -- the
-        # model sometimes rambles about "potentially vulnerable" patterns in
-        # its reasoning even when its own final verdict is NOT VULNERABLE
-        # (seen on an empty file chunk during testing), and a bare substring
-        # check on "vulnerable" picks that noise up as a false positive.
-        verdict_match = VERDICT_LINE_RE.search(answer)
+        if not verdict_match and not clean_match:
+            errors.append(
+                {
+                    "chunk": i,
+                    "error": (
+                        f"model did not return a parseable FOUND/CLEAN verdict after "
+                        f"{MAX_VERDICT_ATTEMPTS} attempts: {answer.strip()[:300]!r}"
+                    ),
+                }
+            )
+
         likely_vulnerable = verdict_match is not None
         findings.append(
             {
