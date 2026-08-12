@@ -63,6 +63,13 @@ def main():
     try:
         run(["git", "clone", "--depth", "1", repo, clone_dir], workdir, CLONE_TIMEOUT_SECONDS, step)
 
+        # Scoped to this clone only, not --global -- the environment running
+        # this script (a Gateway container) has no git identity configured,
+        # and this must work regardless of what's set up on the host.
+        step = "configure git identity"
+        run(["git", "config", "user.email", "antares-cwe-bot@users.noreply.github.com"], clone_dir, GIT_TIMEOUT_SECONDS, step)
+        run(["git", "config", "user.name", "Antares CWE Bot"], clone_dir, GIT_TIMEOUT_SECONDS, step)
+
         branch = f"fix/{slugify(cwe or file_path)}-{secrets.token_hex(3)}"
         step = "create branch"
         run(["git", "checkout", "-b", branch], clone_dir, GIT_TIMEOUT_SECONDS, step)
