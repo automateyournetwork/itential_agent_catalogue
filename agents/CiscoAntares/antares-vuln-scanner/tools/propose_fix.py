@@ -106,6 +106,7 @@ def main():
                 "fixedCode": fixed_code,
                 "fixedCodeBase64": base64.b64encode(fixed_code.encode("utf-8")).decode("ascii"),
                 "explanation": explanation,
+                "explanationBase64": base64.b64encode(explanation.encode("utf-8")).decode("ascii"),
             }
         )
     )

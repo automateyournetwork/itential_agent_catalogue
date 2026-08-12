@@ -76,11 +76,11 @@ def main():
     cwe = args.get("cwe", "")
     commit_message = args.get("commitMessage") or f"Fix {cwe or 'vulnerability'} in {file_path}"
     pr_title = args.get("prTitle") or commit_message
-    pr_body = args.get("prBody") or f"Automated fix for {cwe}."
 
     # Prefer base64 -- the platform's runService task has been observed to
     # mangle multi-line, quote-containing CLI args ("EOF found when expecting
-    # closing quote"), which plain source code triggers constantly. Base64 is
+    # closing quote"), which plain source code (and markdown with backticks,
+    # like a model-written fix explanation) triggers constantly. Base64 is
     # always a plain alphanumeric string, so it can never hit that bug.
     new_content_b64 = args.get("newContentBase64")
     new_content = args.get("newContent")
@@ -90,6 +90,16 @@ def main():
         except Exception as e:
             print(json.dumps({"isError": True, "step": "decode", "error": f"invalid newContentBase64: {e}"}))
             return
+
+    pr_body_b64 = args.get("prBodyBase64")
+    pr_body = args.get("prBody")
+    if pr_body_b64:
+        try:
+            pr_body = base64.b64decode(pr_body_b64).decode("utf-8")
+        except Exception as e:
+            print(json.dumps({"isError": True, "step": "decode", "error": f"invalid prBodyBase64: {e}"}))
+            return
+    pr_body = pr_body or f"Automated fix for {cwe}."
 
     missing = [k for k, v in (("repo", repo), ("filePath", file_path), ("newContent", new_content)) if not v]
     if missing:
