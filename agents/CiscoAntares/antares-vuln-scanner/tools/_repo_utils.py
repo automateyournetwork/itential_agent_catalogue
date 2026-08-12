@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 
 CACHE_DIR = os.environ.get("ANTARES_VULN_CACHE_DIR", "/tmp/antares-vuln-scanner-cache")
@@ -8,8 +9,14 @@ CLONE_TIMEOUT_SECONDS = 30
 
 
 def resolve_repo_root(repo_url):
-    """Clone repo_url into a deterministic local cache dir (idempotent) and
-    return that dir as the confinement root for this call.
+    """Clone repo_url fresh into a deterministic local dir and return that
+    dir as the confinement root for this call.
+
+    This is a security scanner -- it must see the repo's current state, not
+    a cached one. The cache dir path used to be reused across calls without
+    ever re-cloning, so a scan run today could silently analyze a months-old
+    snapshot that predates real merged fixes (or newly added files) on the
+    actual repo. Always wipe and re-clone instead.
 
     Uses subprocess with an argument list (never shell=True), so nothing in
     repo_url is ever interpreted by a shell.
@@ -20,16 +27,17 @@ def resolve_repo_root(repo_url):
     key = hashlib.sha256(repo_url.encode("utf-8")).hexdigest()[:16]
     root = os.path.realpath(os.path.join(CACHE_DIR, key))
 
-    if not os.path.isdir(root):
-        os.makedirs(CACHE_DIR, exist_ok=True)
-        result = subprocess.run(
-            ["git", "clone", "--depth", "1", repo_url, root],
-            capture_output=True,
-            text=True,
-            timeout=CLONE_TIMEOUT_SECONDS,
-        )
-        if result.returncode != 0:
-            raise ValueError(f"git clone failed for {repo_url!r}: {result.stderr.strip()[:300]}")
+    if os.path.isdir(root):
+        shutil.rmtree(root)
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    result = subprocess.run(
+        ["git", "clone", "--depth", "1", repo_url, root],
+        capture_output=True,
+        text=True,
+        timeout=CLONE_TIMEOUT_SECONDS,
+    )
+    if result.returncode != 0:
+        raise ValueError(f"git clone failed for {repo_url!r}: {result.stderr.strip()[:300]}")
 
     return root
 
