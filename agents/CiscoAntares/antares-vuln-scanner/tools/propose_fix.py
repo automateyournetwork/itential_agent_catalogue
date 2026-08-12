@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 import os
 import re
@@ -103,6 +104,7 @@ def main():
                 "isError": False,
                 "filePath": file_path,
                 "fixedCode": fixed_code,
+                "fixedCodeBase64": base64.b64encode(fixed_code.encode("utf-8")).decode("ascii"),
                 "explanation": explanation,
             }
         )
