@@ -1,4 +1,5 @@
 import argparse
+import base64
 import json
 import os
 import sys
@@ -117,6 +118,20 @@ def main():
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
 
+    # Prefer base64 -- findingReasoning/fixExplanation are raw model text and
+    # can contain markdown code fences (backticks) or quotes, which trip the
+    # same runService CLI-quoting bug ("EOF found when expecting closing
+    # quote") that plain source code and PR bodies hit elsewhere in this
+    # pipeline.
+    def decoded(base64_key, plain_key):
+        b64_val = args.get(base64_key)
+        if b64_val:
+            return base64.b64decode(b64_val).decode("utf-8")
+        return args.get(plain_key, "")
+
+    finding_reasoning = decoded("findingReasoningBase64", "findingReasoning")
+    fix_explanation = decoded("fixExplanationBase64", "fixExplanation")
+
     approved_by, approved_at = (None, None)
     if PLATFORM_URL and CLIENT_ID and CLIENT_SECRET:
         try:
@@ -131,8 +146,8 @@ def main():
                 "isError": False,
                 "cwe": args.get("cwe", ""),
                 "filePath": args.get("filePath", ""),
-                "findingReasoning": args.get("findingReasoning", ""),
-                "fixExplanation": args.get("fixExplanation", ""),
+                "findingReasoning": finding_reasoning,
+                "fixExplanation": fix_explanation,
                 "prUrl": args.get("prUrl", ""),
                 "branch": args.get("branch", ""),
                 "merged": "true" if args.get("merged") else "false",
