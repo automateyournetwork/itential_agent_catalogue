@@ -1,4 +1,5 @@
 import argparse
+import base64
 import fnmatch
 import json
 import os
@@ -187,13 +188,15 @@ def main():
             )
 
         likely_vulnerable = verdict_match is not None
+        model_answer = answer.strip()
         findings.append(
             {
                 "chunk": i,
                 "filesInChunk": [rel for rel, _ in chunk_files],
                 "likelyVulnerable": likely_vulnerable,
                 "claimedFile": verdict_match.group(1).strip() if verdict_match else None,
-                "modelAnswer": answer.strip(),
+                "modelAnswer": model_answer,
+                "modelAnswerBase64": base64.b64encode(model_answer.encode("utf-8")).decode("ascii"),
             }
         )
 
