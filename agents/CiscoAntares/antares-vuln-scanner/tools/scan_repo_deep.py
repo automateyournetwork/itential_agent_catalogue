@@ -14,6 +14,9 @@ from _repo_utils import parse_args, resolve_repo_root  # noqa: E402
 OLLAMA_URL = os.environ.get("ANTARES_OLLAMA_URL", "http://host.docker.internal:11434")
 OLLAMA_MODEL = os.environ.get("ANTARES_OLLAMA_MODEL", "antares-1b:latest")
 CHUNK_CHAR_BUDGET = int(os.environ.get("ANTARES_CHUNK_CHAR_BUDGET", "3000"))
+DEFAULT_REPO = os.environ.get(
+    "ANTARES_DEFAULT_REPO", "https://github.com/automateyournetwork/netdiag-vuln-sample"
+)
 REQUEST_TIMEOUT_SECONDS = 120
 DEFAULT_FILE_PATTERN = "*.py"
 VERDICT_LINE_RE = re.compile(r"^\s*FOUND\s*:\s*(\S.*)$", re.IGNORECASE | re.MULTILINE)
@@ -124,12 +127,16 @@ def ask_ollama(cwe, chunk_text, chunk_index, chunk_count):
 def main():
     _, unknown = argparse.ArgumentParser().parse_known_args()
     args = parse_args(unknown)
-    repo = args.get("repo")
+    # repo is intentionally not part of this tool's decorator schema -- the
+    # agentic Finder previously had to retype the repo URL into its own tool
+    # call and repeatedly corrupted it. Defaulting it server-side means the
+    # model is never offered repo as something to generate at all.
+    repo = args.get("repo") or DEFAULT_REPO
     cwe = args.get("cwe")
     pattern = args.get("pattern", DEFAULT_FILE_PATTERN)
 
-    if not repo or not cwe:
-        print(json.dumps({"isError": True, "error": "repo and cwe are both required"}))
+    if not cwe:
+        print(json.dumps({"isError": True, "error": "cwe is required"}))
         return
 
     try:
