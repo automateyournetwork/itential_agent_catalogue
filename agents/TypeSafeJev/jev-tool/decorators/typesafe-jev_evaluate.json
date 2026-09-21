@@ -1,0 +1,22 @@
+{
+  "$id": "typesafe-jev_evaluate",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["state", "questions"],
+  "properties": {
+    "state": {
+      "type": "string",
+      "description": "The text (or JSON, as a string) describing the situation to evaluate -- e.g. a ticket body, a device log excerpt, parsed pyATS/show-command output. Passed to TypeSafe's Jev model as-is, unmodified."
+    },
+    "questions": {
+      "type": "string",
+      "description": "A JSON-encoded object mapping a question name to its definition, matching TypeSafe's System One question schema. Each definition needs \"type\" (one of \"choice\", \"score\", \"noul\") and \"instructions\" describing what to evaluate; a \"choice\" question also needs \"criteria\" (object mapping each option name to a description of when to pick it). Example: {\"urgent\": {\"type\": \"noul\", \"instructions\": \"Is this asking for money back?\"}, \"team\": {\"type\": \"choice\", \"instructions\": \"Which team should handle this?\", \"criteria\": {\"billing\": \"payment or invoice issues\", \"technical\": \"errors or outages\"}}}. Multiple questions in one call are evaluated in parallel against the same state."
+    },
+    "model": {
+      "type": "string",
+      "description": "TypeSafe System One model name.",
+      "default": "jev-latest"
+    }
+  }
+}
