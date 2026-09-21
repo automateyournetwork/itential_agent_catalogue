@@ -130,11 +130,66 @@ Agent id (this deployment): `a4c953d1-b381-4162-9a91-e16eb85ce9e5`
 
 ---
 
-## Next (not built yet)
+## 4. The workflow (`reconfig_workflow.json` in this directory)
 
-The Operations Manager workflow wrapping both agents with a `ViewData`
-(Work Center) approval gate between them, plus the two `typesafe-jev_evaluate`
-`runService` calls (pre-push and post-push). See `../jev-tool/README.md`
-for the confirmed Jev `questions` schema (`score` type needs `criteria` as
-an ORDERED LIST of level descriptions, not an object — confirmed empirically
-2026-09-21, differs from the `choice` type's object-keyed `criteria`).
+Built 2026-09-21. `Jev Testing - R1-R2-SW1-SW2 Reconfig`
+(`7e186156-b550-4030-960f-bec53fe99881`), created via
+`POST /automation-studio/automations` (NOT `/automation-studio/workflows`,
+which only supports `GET`/`HEAD` — the body must be wrapped in a top-level
+`{"automation": {...}}` key with `type: "automation"`, `canvasVersion: 3`,
+and a `groups: []` array, or the create call 500s with a schema dump that
+is itself the most useful error message you'll get from this endpoint).
+
+**Chain:** `runAgent(Proposer)` → `query` sessionId → `runService`
+(`antares-vuln_extract_agent_tool_result` — the CiscoAntares tool is
+generic, reused as-is, no new extraction tool needed) → `query`
+`result.stdout` (raw proposal JSON string) → `runService`
+(`typesafe-jev_evaluate`, pre-check) → `query` `result.stdout` → `ViewData`
+(Work Center approval, `body`=raw proposal string, `variables`=raw Jev
+string) → on approve, `runAgent(Pusher v2)` with `inputs.approved_devices`
+= the same raw proposal string, unchanged → same
+extract/query/Jev-post-check chain → `workflow_end`. On reject, or on any
+of the two critical `query` extraction steps failing to resolve, transitions
+straight to `workflow_end` instead.
+
+**Why raw JSON strings are passed through untouched at every hop instead of
+parsing into objects and rebuilding them:** avoids ever needing a
+JSON-stringify step, which this platform's `WorkFlowEngine` doesn't appear
+to expose as a task (only `parse`, string→object, confirmed elsewhere in
+this repo). `query`'s own path-extraction returns whatever's at that path
+as-is; since Jev's own `state` field and an agent's own `inputs.*` string
+field both happily accept a raw JSON string as their value, there was never
+a need to touch the data at all between extraction and its next consumer.
+
+**`AgentSessionManager.runAgent` vs `FlowAI.callAgent`:** tested both as
+throwaway probe workflows before committing to an architecture.
+`FlowAI.callAgent` (referencing an agent by plain name) exists as a task
+type in the UI and even in another real project's workflow on this same
+platform instance, but creating it here returns
+`"errors":[{"task":"...","message":"Package not found"}]` — confirms the
+`itential-builder:flowagent` skill's own warning that the classic
+`/flowai/*` surface 404s on this platform build; that workflow example
+apparently doesn't actually work here despite existing.
+`AgentSessionManager.runAgent` (`actor: "job"`, `agent` = the
+agent-project-service UUID, not a name) creates and *runs* cleanly — a real
+probe job spent 5+ real minutes in `status: "running"` calling out to the
+agent, confirming it isn't a fast, silent no-op.
+
+**Pusher v2, not v1:** the original Pusher agent
+(`a4c953d1-b381-4162-9a91-e16eb85ce9e5`) expected `approved_devices` to be
+pre-extracted down to just the `devices` sub-object — which would have
+needed a workflow-level JSON-stringify step that doesn't cleanly exist here.
+Rather than fight that, a second agent,
+`R1-R2-SW1-SW2 Reconfig Pusher (v2)` (`38c873f8-36bd-4fae-a49e-d9fb1150daf7`),
+was created instead, accepting the Proposer's *entire* raw payload
+(`summary`/`current_state`/`devices`) unchanged and told to use only
+`.devices` itself. v1 is a harmless orphan, left in the project rather than
+force-deleted (agent-project-service agents can't be deleted via the API
+anyway) — do not wire it into anything.
+
+**Still open / not yet done:** an actual live end-to-end run of this
+workflow (Proposer → Jev pre-check → real human click in Work Center →
+Pusher → Jev post-check) — built and validated piece-by-piece
+(`runAgent` task type confirmed live, `automations` create endpoint
+confirmed, Proposer agent confirmed working standalone) but not yet run as
+one continuous job.

@@ -1,0 +1,486 @@
+{
+  "automation": {
+    "name": "Jev Testing - R1-R2-SW1-SW2 Reconfig",
+    "description": "Propose -> Jev pre-check -> Work Center approval -> push -> resample -> Jev post-check for R1/R2/SW1/SW2",
+    "type": "automation",
+    "canvasVersion": 3,
+    "groups": [],
+    "tasks": {
+      "workflow_start": {
+        "name": "workflow_start",
+        "summary": "workflow_start",
+        "groups": [],
+        "x": 0,
+        "y": 0.5
+      },
+      "workflow_end": {
+        "name": "workflow_end",
+        "summary": "workflow_end",
+        "groups": [],
+        "x": 1,
+        "y": 0.5
+      },
+      "1a": {
+        "name": "runAgent",
+        "canvasName": "runAgent",
+        "summary": "Run Reconfig Proposer",
+        "location": "Application",
+        "app": "AgentSessionManager",
+        "displayName": "AgentSessionManager",
+        "type": "operation",
+        "actor": "job",
+        "variables": {
+          "incoming": {
+            "agent": "0d1c5fee-cbbc-4d8d-abd0-0b4b8b315379",
+            "inputs": {}
+          },
+          "outgoing": {
+            "result": "$var.job.proposerSession"
+          },
+          "error": "",
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "1b": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract Proposer sessionId",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": false,
+            "query": "sessionId",
+            "obj": "$var.1a.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.proposerSessionId"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 1
+        }
+      },
+      "1c": {
+        "name": "runService",
+        "canvasName": "runService",
+        "summary": "Extract Proposer submit_proposal result",
+        "location": "Application",
+        "app": "GatewayManager",
+        "displayName": "GatewayManager",
+        "type": "automatic",
+        "actor": "Pronghorn",
+        "variables": {
+          "incoming": {
+            "serviceName": "antares-vuln_extract_agent_tool_result",
+            "clusterId": "john_capo_cluster",
+            "params": {
+              "sessionId": "$var.1b.return_data",
+              "toolName": "reconfig-submit-proposal"
+            },
+            "inventory": ""
+          },
+          "outgoing": {
+            "result": "$var.job.proposalExtractResult"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 2
+        }
+      },
+      "1d": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract raw proposal JSON stdout",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": false,
+            "query": "result.stdout",
+            "obj": "$var.1c.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.proposalRaw"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 3
+        }
+      },
+      "1e": {
+        "name": "runService",
+        "canvasName": "runService",
+        "summary": "Jev pre-push check",
+        "location": "Application",
+        "app": "GatewayManager",
+        "displayName": "GatewayManager",
+        "type": "automatic",
+        "actor": "Pronghorn",
+        "variables": {
+          "incoming": {
+            "serviceName": "typesafe-jev_evaluate",
+            "clusterId": "john_capo_cluster",
+            "params": {
+              "state": "$var.1d.return_data",
+              "questions": "{\"success_probability\": {\"type\": \"score\", \"instructions\": \"Given the current device state and this proposed network configuration change (RoS, VLANs, STP/L2 best practices, OSPF underlay, iBGP overlay, CDP policy), how likely is this specific proposal to apply cleanly and achieve its stated design intent without breaking existing connectivity?\", \"criteria\": [\"very unlikely to succeed cleanly, high chance of syntax errors or broken connectivity\", \"unlikely to succeed without significant issues\", \"uncertain, roughly even odds\", \"likely to succeed with only minor issues\", \"very likely to succeed cleanly as designed\"]}, \"safe_to_push\": {\"type\": \"noul\", \"instructions\": \"Is this proposal safe to push to production devices without further human revision, based on the current_state evidence and the devices config_commands provided?\"}}",
+              "model": "jev-latest"
+            },
+            "inventory": ""
+          },
+          "outgoing": {
+            "result": "$var.job.jevPreResult"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 4
+        }
+      },
+      "1f": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract raw Jev pre-check JSON stdout",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": true,
+            "query": "result.stdout",
+            "obj": "$var.1e.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.jevPreRaw"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 5
+        }
+      },
+      "20": {
+        "name": "ViewData",
+        "canvasName": "ViewData",
+        "summary": "Approve R1/R2/SW1/SW2 Reconfiguration",
+        "description": "Displays the Proposer's proposal and Jev's pre-push assessment to a human for approval.",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "manual",
+        "variables": {
+          "incoming": {
+            "header": "R1-R2-SW1-SW2 Reconfiguration Proposal",
+            "message": "The Reconfig Proposer inspected live device state and produced the proposal in \"body\" below. \"variables\" holds TypeSafe Jev's pre-push probability-of-success assessment. Approve to push exactly this configuration, or Reject to stop here with nothing changed.",
+            "body": "$var.1d.return_data",
+            "variables": "$var.1f.return_data",
+            "btn_success": "Approve & Push",
+            "btn_failure": "Reject"
+          },
+          "outgoing": {},
+          "decorators": []
+        },
+        "view": "/workflow_engine/task/ViewData",
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 6
+        }
+      },
+      "21": {
+        "name": "runAgent",
+        "canvasName": "runAgent",
+        "summary": "Run Reconfig Pusher (v2)",
+        "location": "Application",
+        "app": "AgentSessionManager",
+        "displayName": "AgentSessionManager",
+        "type": "operation",
+        "actor": "job",
+        "variables": {
+          "incoming": {
+            "agent": "38c873f8-36bd-4fae-a49e-d9fb1150daf7",
+            "inputs": {
+              "approved_devices": "$var.1d.return_data"
+            }
+          },
+          "outgoing": {
+            "result": "$var.job.pusherSession"
+          },
+          "error": "",
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 7
+        }
+      },
+      "22": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract Pusher sessionId",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": false,
+            "query": "sessionId",
+            "obj": "$var.21.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.pusherSessionId"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 8
+        }
+      },
+      "23": {
+        "name": "runService",
+        "canvasName": "runService",
+        "summary": "Extract Pusher submit_push_result result",
+        "location": "Application",
+        "app": "GatewayManager",
+        "displayName": "GatewayManager",
+        "type": "automatic",
+        "actor": "Pronghorn",
+        "variables": {
+          "incoming": {
+            "serviceName": "antares-vuln_extract_agent_tool_result",
+            "clusterId": "john_capo_cluster",
+            "params": {
+              "sessionId": "$var.22.return_data",
+              "toolName": "reconfig-submit-push-result"
+            },
+            "inventory": ""
+          },
+          "outgoing": {
+            "result": "$var.job.pushExtractResult"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 9
+        }
+      },
+      "24": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract raw push-result JSON stdout",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": false,
+            "query": "result.stdout",
+            "obj": "$var.23.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.pushResultRaw"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 10
+        }
+      },
+      "25": {
+        "name": "runService",
+        "canvasName": "runService",
+        "summary": "Jev post-push check",
+        "location": "Application",
+        "app": "GatewayManager",
+        "displayName": "GatewayManager",
+        "type": "automatic",
+        "actor": "Pronghorn",
+        "variables": {
+          "incoming": {
+            "serviceName": "typesafe-jev_evaluate",
+            "clusterId": "john_capo_cluster",
+            "params": {
+              "state": "$var.24.return_data",
+              "questions": "{\"change_succeeded\": {\"type\": \"noul\", \"instructions\": \"Based on the post-push state and per-device results provided, did the configuration change fully succeed as originally intended?\"}, \"residual_risk\": {\"type\": \"score\", \"instructions\": \"Based on the post-push state, how much residual risk or concern remains (e.g. incomplete convergence, unexpected diffs, rolled-back devices, missing neighbors)?\", \"criteria\": [\"no residual risk, fully converged and correct\", \"minor residual risk, cosmetic or easily fixed\", \"moderate residual risk, needs follow-up\", \"significant residual risk, partial failure\", \"severe residual risk, requires immediate attention or rollback\"]}}",
+              "model": "jev-latest"
+            },
+            "inventory": ""
+          },
+          "outgoing": {
+            "result": "$var.job.jevPostResult"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 11
+        }
+      },
+      "26": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract raw Jev post-check JSON stdout",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": true,
+            "query": "result.stdout",
+            "obj": "$var.25.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.jevPostRaw"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 12
+        }
+      }
+    },
+    "transitions": {
+      "workflow_start": {
+        "1a": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "1a": {
+        "1b": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "1b": {
+        "1c": {
+          "state": "success",
+          "type": "standard"
+        },
+        "workflow_end": {
+          "state": "failure",
+          "type": "standard"
+        }
+      },
+      "1c": {
+        "1d": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "1d": {
+        "1e": {
+          "state": "success",
+          "type": "standard"
+        },
+        "workflow_end": {
+          "state": "failure",
+          "type": "standard"
+        }
+      },
+      "1e": {
+        "1f": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "1f": {
+        "20": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "20": {
+        "21": {
+          "state": "success",
+          "type": "standard"
+        },
+        "workflow_end": {
+          "state": "failure",
+          "type": "standard"
+        }
+      },
+      "21": {
+        "22": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "22": {
+        "23": {
+          "state": "success",
+          "type": "standard"
+        },
+        "workflow_end": {
+          "state": "failure",
+          "type": "standard"
+        }
+      },
+      "23": {
+        "24": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "24": {
+        "25": {
+          "state": "success",
+          "type": "standard"
+        },
+        "workflow_end": {
+          "state": "failure",
+          "type": "standard"
+        }
+      },
+      "25": {
+        "26": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "26": {
+        "workflow_end": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "workflow_end": {}
+    }
+  }
+}
