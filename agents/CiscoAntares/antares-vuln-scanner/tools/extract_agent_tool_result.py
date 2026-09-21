@@ -62,9 +62,14 @@ def main():
 
     try:
         token = get_platform_token()
+        # No limit -> the platform's own default page size, which is small
+        # enough to silently truncate a long agentic session before its real
+        # submit-tool call (confirmed empirically: a 36-message session had
+        # its actual tool-execution event at index 29, past the unlimited
+        # default page). Always pass an explicit high limit.
         messages = http_json(
             "GET",
-            f"{PLATFORM_URL}/agent-session-manager/sessions/{session_id}/messages",
+            f"{PLATFORM_URL}/agent-session-manager/sessions/{session_id}/messages?limit=1000",
             token=token,
         )
     except (urllib.error.URLError, KeyError) as e:
