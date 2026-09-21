@@ -24,7 +24,12 @@ def main():
         print(json.dumps({"isError": True, "error": "missing required: ['summary']"}))
         return
 
-    print(json.dumps({"isError": False, "summary": summary}))
+    # Unlike this project's other submit_* tools, print the plain text
+    # itself (not a JSON wrapper) on success -- the one and only consumer
+    # is a ViewData "message" field meant for direct human reading, so
+    # there's no value in wrapping it just for a downstream parse step to
+    # immediately unwrap again.
+    print(summary)
 
 
 if __name__ == "__main__":
