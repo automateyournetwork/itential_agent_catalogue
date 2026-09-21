@@ -1,0 +1,21 @@
+{
+  "$id": "reconfig-submit-proposal",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "current_state", "devices"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph human-readable summary of the overall proposed change, for a network engineer reviewing it in Work Center."
+    },
+    "current_state": {
+      "type": "string",
+      "description": "JSON object of the RAW tool output you actually received from pyats_device_health / pyats_show_running_config / pyats_get_neighbors / pyats_learn_feature calls on R1, R2, SW1, SW2 -- not your own paraphrase of it. Keyed by device name."
+    },
+    "devices": {
+      "type": "string",
+      "description": "JSON object keyed by exactly R1, R2, SW1, SW2. Each value is an object with \"config_commands\" (array of CLI config-mode lines, no 'configure terminal' or 'end') and \"reasoning\" (string explaining why, referencing the actual current_state)."
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "$id": "reconfig-submit-push-result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "post_state", "results"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "One-paragraph human-readable summary of what was pushed and what resampling showed afterward."
+    },
+    "post_state": {
+      "type": "string",
+      "description": "JSON object of the RAW tool output you actually received from pyats_device_health / pyats_get_neighbors calls on R1, R2, SW1, SW2 AFTER pushing -- not your own paraphrase. Keyed by device name."
+    },
+    "results": {
+      "type": "string",
+      "description": "JSON object keyed by exactly R1, R2, SW1, SW2. Each value is an object with \"success\" (boolean), \"config_commands\" (what was actually pushed), \"diff\" (the unified diff pyats_configure_with_diff returned), and \"rollback_performed\" (boolean, true if pyats_rollback_config was called for this device)."
+    }
+  }
+}
