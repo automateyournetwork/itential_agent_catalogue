@@ -1,0 +1,13 @@
+{
+  "$id": "reconfig-submit-summary",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary"],
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "A short, plain-English paragraph (4-8 sentences) for a network engineer to read in Work Center in under 20 seconds: what the proposal does, Jev's probability-of-success assessment in plain words (not raw numbers alone -- translate the score/confidence into a clear statement), and the single most important thing to check before approving."
+    }
+  }
+}
