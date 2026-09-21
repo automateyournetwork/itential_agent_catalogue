@@ -26,6 +26,21 @@ So: Jev becomes a **Gateway tool** a chat-based agent can call mid-conversation
 for fast, cheap, calibrated structured sub-decisions (routing, triage,
 scoring) -- not a swap-in replacement for the agent's own LLM.
 
+## Confirmed `questions` schema per type (2026-09-21, real API calls)
+
+- **`noul`**: `{"type": "noul", "instructions": "..."}` -> answer
+  `{"type": "noul", "noul": <0..1 probability>}`.
+- **`choice`**: `{"type": "choice", "instructions": "...", "criteria": {"<option>": "<description>", ...}}`
+  (criteria is an OBJECT keyed by option name) -> answer includes `choice`,
+  `probabilities` (per option), `confidence`.
+- **`score`**: `{"type": "score", "instructions": "...", "criteria": [...]}`
+  (criteria is an ORDERED LIST of level descriptions, index 0 = lowest --
+  **not** an object, and **not** a field called `scale` despite that being
+  a reasonable guess; the API's own 422 error names the missing/wrong field
+  exactly, worth doing one deliberate bad call first to get the real error
+  instead of guessing twice) -> answer includes `score` (weighted position),
+  `confidence`, `legend` (index -> description), `probabilities` (per index).
+
 ## What's here
 
 - `tools/jev_evaluate.py` -- the IAG python-script service. Pure stdlib
