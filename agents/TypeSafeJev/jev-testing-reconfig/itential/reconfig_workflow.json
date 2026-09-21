@@ -1,7 +1,7 @@
 {
-  "automation": {
+  "update": {
     "name": "Jev Testing - R1-R2-SW1-SW2 Reconfig",
-    "description": "Propose -> Jev pre-check -> Work Center approval -> push -> resample -> Jev post-check for R1/R2/SW1/SW2",
+    "description": "Propose -> Jev pre-check -> Sonnet summary -> Work Center approval -> push -> resample -> Jev post-check for R1/R2/SW1/SW2",
     "type": "automation",
     "canvasVersion": 3,
     "groups": [],
@@ -182,11 +182,120 @@
           "y": 5
         }
       },
+      "27": {
+        "name": "runAgent",
+        "canvasName": "runAgent",
+        "summary": "Run Jev Assessment Summarizer (pre)",
+        "location": "Application",
+        "app": "AgentSessionManager",
+        "displayName": "AgentSessionManager",
+        "type": "operation",
+        "actor": "job",
+        "variables": {
+          "incoming": {
+            "agent": "b1b211b7-5459-4d94-9fd6-03e2ad58f597",
+            "inputs": {
+              "proposal": "$var.1d.return_data",
+              "jev_assessment": "$var.1f.return_data"
+            }
+          },
+          "outgoing": {
+            "result": "$var.job.summarizerSession"
+          },
+          "error": "",
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 5.5
+        }
+      },
+      "28": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract Summarizer sessionId",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": true,
+            "query": "sessionId",
+            "obj": "$var.27.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.summarizerSessionId"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 5.6
+        }
+      },
+      "29": {
+        "name": "runService",
+        "canvasName": "runService",
+        "summary": "Extract Summarizer submit_summary result",
+        "location": "Application",
+        "app": "GatewayManager",
+        "displayName": "GatewayManager",
+        "type": "automatic",
+        "actor": "Pronghorn",
+        "variables": {
+          "incoming": {
+            "serviceName": "antares-vuln_extract_agent_tool_result",
+            "clusterId": "john_capo_cluster",
+            "params": {
+              "sessionId": "$var.28.return_data",
+              "toolName": "reconfig-submit-summary"
+            },
+            "inventory": ""
+          },
+          "outgoing": {
+            "result": "$var.job.summaryExtractResult"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 5.7
+        }
+      },
+      "2a": {
+        "name": "query",
+        "canvasName": "query",
+        "summary": "Extract plain-text summary",
+        "location": "Application",
+        "app": "WorkFlowEngine",
+        "displayName": "Tools",
+        "type": "operation",
+        "variables": {
+          "incoming": {
+            "pass_on_null": true,
+            "query": "result.stdout",
+            "obj": "$var.29.result"
+          },
+          "outgoing": {
+            "return_data": "$var.job.summaryText"
+          },
+          "decorators": []
+        },
+        "groups": [],
+        "nodeLocation": {
+          "x": 0,
+          "y": 5.8
+        }
+      },
       "20": {
         "name": "ViewData",
         "canvasName": "ViewData",
         "summary": "Approve R1/R2/SW1/SW2 Reconfiguration",
-        "description": "Displays the Proposer's proposal and Jev's pre-push assessment to a human for approval.",
+        "description": "Displays a human-readable summary (Proposer proposal + Jev pre-push assessment, synthesized by the Summarizer agent) plus the full raw proposal, for human approval.",
         "location": "Application",
         "app": "WorkFlowEngine",
         "displayName": "Tools",
@@ -194,9 +303,9 @@
         "variables": {
           "incoming": {
             "header": "R1-R2-SW1-SW2 Reconfiguration Proposal",
-            "message": "The Reconfig Proposer inspected live device state and produced the proposal in \"body\" below. \"variables\" holds TypeSafe Jev's pre-push probability-of-success assessment. Approve to push exactly this configuration, or Reject to stop here with nothing changed.",
+            "message": "$var.2a.return_data",
             "body": "$var.1d.return_data",
-            "variables": "$var.1f.return_data",
+            "variables": {},
             "btn_success": "Approve & Push",
             "btn_failure": "Reject"
           },
@@ -421,6 +530,30 @@
         }
       },
       "1f": {
+        "27": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "27": {
+        "28": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "28": {
+        "29": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "29": {
+        "2a": {
+          "state": "success",
+          "type": "standard"
+        }
+      },
+      "2a": {
         "20": {
           "state": "success",
           "type": "standard"
